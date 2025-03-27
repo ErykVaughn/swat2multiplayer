@@ -11,12 +11,16 @@ class SerialPort:
 
     def read_from_com(self):
         """Reads binary data from the COM port and returns it."""
-        while True:
-            with self.lock:
+        with self.lock:
+            try:
                 if self.ser.in_waiting > 0:
                     data = self.ser.read(self.ser.in_waiting)  # Read available bytes
                     print(f"[{self.com_port}] Received: {data.hex()}")  # Print as hex
                     return data  # Return binary data
+            except serial.SerialTimeoutException:
+                print("[ERROR] Serial timeout occurred.")
+                return None  # Return None on timeout
+        return None  # No data available
 
     def write_to_com(self, data):
         """Writes binary data to the COM port."""

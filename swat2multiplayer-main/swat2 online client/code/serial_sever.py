@@ -1,8 +1,9 @@
 import socket
+import select
 from SerialPort import SerialPort  # Import SerialPort class
 
 def tcp_server(host="192.168.1.49", port=5000, com_port="COM1"):
-    """TCP server that handles reading/writing to a serial port."""
+    """TCP server that handles real-time bidirectional communication between TCP and Serial Port."""
     serial_port = SerialPort(com_port)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
@@ -13,21 +14,27 @@ def tcp_server(host="192.168.1.49", port=5000, com_port="COM1"):
         conn, addr = server_socket.accept()
         print(f"[TCP SERVER] Connection from {addr}")
 
+        conn.setblocking(False)  # Set non-blocking mode for TCP socket
+
         try:
             while True:
-                # Receive data from TCP client
-                data = conn.recv(1024)
-                if not data:
-                    break  # Exit loop if connection is closed
-                print(f"[TCP SERVER] Received from TCP: {data.hex()}")
+                # Use select to wait for incoming TCP or Serial data
+                readable, _, _ = select.select([conn], [], [], 0.01)  # Non-blocking wait
+                
+                # Check if there is incoming TCP data
+                if conn in readable:
+                    data = conn.recv(1024)
+                    if not data:
+                        break  # Exit if connection is closed
+                    print(f"[TCP SERVER] Received from TCP: {data.hex()}")
 
-                # Write received data to COM port
-                serial_port.write_to_com(data)
+                    # Write to COM port
+                    serial_port.write_to_com(data)
 
-                # Read response from COM port
+                # Check if there is data from the Serial Port
                 response = serial_port.read_from_com()
                 if response:
-                    conn.sendall(response)  # Send response back to client
+                    conn.sendall(response)  # Send to TCP client
                     print(f"[TCP SERVER] Sent to TCP: {response.hex()}")
 
         except Exception as e:
@@ -39,4 +46,4 @@ def tcp_server(host="192.168.1.49", port=5000, com_port="COM1"):
             print("[TCP SERVER] Connection closed.")
 
 if __name__ == "__main__":
-    tcp_server(host="0.0.0.0", port=5000, com_port="COM1")  # Change COM port if needed
+    tcp_server(host="192.168.1.101", port=5000, com_port="COM1")  # Change COM port if needed
